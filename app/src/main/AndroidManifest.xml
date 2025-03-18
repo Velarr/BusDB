@@ -14,6 +14,22 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.BusDB"
-        tools:targetApi="31" />
+        tools:targetApi="31" >
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyCbC9hK8flH7WifT7uLYNiNpwyWzAcyNHY" />
+
+        <activity
+            android:name=".SecondaryActivity"
+            android:exported="true"
+            android:label="@string/title_activity_secondary">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
 
 </manifest>

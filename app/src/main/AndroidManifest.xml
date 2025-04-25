@@ -21,7 +21,7 @@
             android:value="AIzaSyCbC9hK8flH7WifT7uLYNiNpwyWzAcyNHY" />
 
         <activity
-            android:name=".SecondaryActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:label="@string/title_activity_secondary">
             <intent-filter>

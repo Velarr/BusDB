@@ -44,4 +44,10 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
 
     implementation ("com.google.firebase:firebase-database:21.0.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("com.google.firebase:firebase-common-ktx:20.4.2")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.core:core:1.12.0")
 }
+
+apply(plugin = "com.google.gms.google-services")

@@ -92,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
         handler.post(locationRunnable);
         btnSendLocation.setVisibility(Button.GONE);
         btnStopLocation.setVisibility(Button.VISIBLE);
-        etName.setEnabled(false); // Desabilita o campo de nome
+        etName.setEnabled(false);
     }
 
     private void stopLocationUpdates() {
@@ -109,6 +109,8 @@ public class MainActivity extends AppCompatActivity {
                         btnSendLocation.setVisibility(Button.VISIBLE);
                     });
         }
+        etName.setEnabled(true);
+
     }
 
     private void getAndSendLocation(String userName) {

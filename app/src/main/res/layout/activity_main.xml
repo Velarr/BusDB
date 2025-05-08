@@ -12,6 +12,12 @@
         android:hint="Digite seu nome"
         android:inputType="text" />
 
+    <Spinner
+        android:id="@+id/spinnerLinha"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" />
+
     <Button
         android:id="@+id/btnStartSharing"
         android:layout_width="match_parent"

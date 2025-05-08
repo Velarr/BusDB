@@ -9,6 +9,8 @@ import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -32,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
     private Button btnSendLocation, btnStopLocation;
     private Handler handler;
     private Runnable locationRunnable;
+    private Spinner spinnerLinha;
+    private String linhaSelecionada;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,13 +44,27 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         tvStatus = findViewById(R.id.tvStatus);
-        etName = findViewById(R.id.etName); // EditText para o nome do usuário
+        etName = findViewById(R.id.etName);
         btnSendLocation = findViewById(R.id.btnStartSharing);
-        btnStopLocation = findViewById(R.id.btnStopSharing); // Botão para parar
+        btnStopLocation = findViewById(R.id.btnStopSharing);
+        spinnerLinha = findViewById(R.id.spinnerLinha);
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        // Configura o Spinner
+        String[] opcoes = {"Old Street", "Vr Line"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, opcoes);
+        spinnerLinha.setAdapter(adapter);
 
         btnSendLocation.setOnClickListener(v -> {
             String userName = etName.getText().toString();
+            String opcaoSelecionada = spinnerLinha.getSelectedItem().toString();
+            if (opcaoSelecionada.equals("Old Street")) {
+                linhaSelecionada = "old_street.geojson";
+            } else if (opcaoSelecionada.equals("Vr Line")) {
+                linhaSelecionada = "vr_line.geojson";
+            }
+
             if (!userName.isEmpty()) {
                 if (hasLocationPermission()) {
                     startLocationUpdates(userName);
@@ -62,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
             stopLocationUpdates();
         });
 
-        btnStopLocation.setVisibility(Button.GONE); // Inicialmente escondido
+        btnStopLocation.setVisibility(Button.GONE);
     }
 
     private boolean hasLocationPermission() {
@@ -85,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 getAndSendLocation(userName);
-                handler.postDelayed(this, 5000); // Enviar a cada 5 segundos
+                handler.postDelayed(this, 5000); // Envia a cada 5 segundos
             }
         };
 
@@ -93,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
         btnSendLocation.setVisibility(Button.GONE);
         btnStopLocation.setVisibility(Button.VISIBLE);
         etName.setEnabled(false);
+        spinnerLinha.setEnabled(false);
     }
 
     private void stopLocationUpdates() {
@@ -107,10 +126,10 @@ public class MainActivity extends AppCompatActivity {
                         tvStatus.setText("Localização parada e removida do Firebase.");
                         btnStopLocation.setVisibility(Button.GONE);
                         btnSendLocation.setVisibility(Button.VISIBLE);
+                        spinnerLinha.setEnabled(true);
+                        etName.setEnabled(true);
                     });
         }
-        etName.setEnabled(true);
-
     }
 
     private void getAndSendLocation(String userName) {
@@ -131,9 +150,10 @@ public class MainActivity extends AppCompatActivity {
         Map<String, Object> data = new HashMap<>();
         data.put("latitude", location.getLatitude());
         data.put("longitude", location.getLongitude());
+        data.put("linha", linhaSelecionada); // Envia o nome do ficheiro GeoJSON
 
         locationRef.setValue(data)
-                .addOnSuccessListener(aVoid -> tvStatus.setText("Localização enviada para " + userName + " a cada 5s"))
+                .addOnSuccessListener(aVoid -> tvStatus.setText("Localização enviada com linha " + linhaSelecionada))
                 .addOnFailureListener(e -> tvStatus.setText("Erro ao enviar: " + e.getMessage()));
     }
 

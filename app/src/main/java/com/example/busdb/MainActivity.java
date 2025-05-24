@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         // Configura o Spinner
-        String[] opcoes = {"Old Street", "Vr Line"};
+        String[] opcoes = {"Old Street", "Covao VR"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, opcoes);
         spinnerLinha.setAdapter(adapter);
 
@@ -60,9 +60,9 @@ public class MainActivity extends AppCompatActivity {
             String userName = etName.getText().toString();
             String opcaoSelecionada = spinnerLinha.getSelectedItem().toString();
             if (opcaoSelecionada.equals("Old Street")) {
-                linhaSelecionada = "old_street.geojson";
-            } else if (opcaoSelecionada.equals("Vr Line")) {
-                linhaSelecionada = "vr_line.geojson";
+                linhaSelecionada = "old_street.kml";
+            } else if (opcaoSelecionada.equals("Covao VR")) {
+                linhaSelecionada = "covao_vr.kml";
             }
 
             if (!userName.isEmpty()) {
@@ -150,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
         Map<String, Object> data = new HashMap<>();
         data.put("latitude", location.getLatitude());
         data.put("longitude", location.getLongitude());
-        data.put("linha", linhaSelecionada); // Envia o nome do ficheiro GeoJSON
+        data.put("linha", linhaSelecionada); // Envia o nome do ficheiro Kml
 
         locationRef.setValue(data)
                 .addOnSuccessListener(aVoid -> tvStatus.setText("Localização enviada com linha " + linhaSelecionada))

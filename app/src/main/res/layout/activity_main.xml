@@ -5,18 +5,12 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <EditText
-        android:id="@+id/etName"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Digite seu nome"
-        android:inputType="text" />
-
     <Spinner
         android:id="@+id/spinnerLinha"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="16dp"
+        android:spinnerMode="dropdown" />
 
     <Button
         android:id="@+id/btnStartSharing"
@@ -39,5 +33,5 @@
         android:layout_height="wrap_content"
         android:text="Status"
         android:layout_marginTop="16dp"
-        android:textSize="16sp"/>
+        android:textSize="16sp" />
 </LinearLayout>

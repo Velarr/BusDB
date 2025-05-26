@@ -5,12 +5,12 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.Log;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Spinner;
 import android.widget.ArrayAdapter;
+import android.widget.TextView;
+import android.widget.AdapterView;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,23 +19,49 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.*;
 import com.google.firebase.FirebaseApp;
-import com.google.firebase.database.*;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final int LOCATION_PERMISSION_REQUEST = 1001;
     private FusedLocationProviderClient fusedLocationClient;
-    private DatabaseReference locationRef;
-    private TextView tvStatus;
-    private EditText etName;
-    private Button btnSendLocation, btnStopLocation;
+    private DatabaseReference firebaseLocationRef;
+    private TextView statusTextView;
+    private Button startButton, stopButton;
+    private Spinner routeSpinner;
+
     private Handler handler;
     private Runnable locationRunnable;
-    private Spinner spinnerLinha;
-    private String linhaSelecionada;
+
+    private List<Route> routeList = new ArrayList<>();
+    private Route selectedRoute;
+
+    // Classe representando uma rota com dados da Firestore
+    private static class Route {
+        String firestoreId;
+        String name;
+        int number;
+        String color;
+
+        Route(String id, String name, int number, String color) {
+            this.firestoreId = id;
+            this.name = name;
+            this.number = number;
+            this.color = color;
+        }
+
+        @Override
+        public String toString() {
+            return number + " - " + name;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,44 +69,70 @@ public class MainActivity extends AppCompatActivity {
         FirebaseApp.initializeApp(this);
         setContentView(R.layout.activity_main);
 
-        tvStatus = findViewById(R.id.tvStatus);
-        etName = findViewById(R.id.etName);
-        btnSendLocation = findViewById(R.id.btnStartSharing);
-        btnStopLocation = findViewById(R.id.btnStopSharing);
-        spinnerLinha = findViewById(R.id.spinnerLinha);
+        statusTextView = findViewById(R.id.tvStatus);
+        startButton = findViewById(R.id.btnStartSharing);
+        stopButton = findViewById(R.id.btnStopSharing);
+        routeSpinner = findViewById(R.id.spinnerLinha);
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        // Configura o Spinner
-        String[] opcoes = {"Old Street", "Covao VR"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, opcoes);
-        spinnerLinha.setAdapter(adapter);
+        loadRoutesFromFirestore();
 
-        btnSendLocation.setOnClickListener(v -> {
-            String userName = etName.getText().toString();
-            String opcaoSelecionada = spinnerLinha.getSelectedItem().toString();
-            if (opcaoSelecionada.equals("Old Street")) {
-                linhaSelecionada = "old_street.kml";
-            } else if (opcaoSelecionada.equals("Covao VR")) {
-                linhaSelecionada = "covao_vr.kml";
+        routeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                selectedRoute = routeList.get(position);
             }
 
-            if (!userName.isEmpty()) {
-                if (hasLocationPermission()) {
-                    startLocationUpdates(userName);
-                } else {
-                    requestLocationPermission();
-                }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                selectedRoute = null;
+            }
+        });
+
+        startButton.setOnClickListener(v -> {
+            if (selectedRoute == null) {
+                statusTextView.setText("Por favor, selecione uma rota.");
+                return;
+            }
+            if (hasLocationPermission()) {
+                beginLocationUpdates();
             } else {
-                tvStatus.setText("Por favor, insira um nome.");
+                requestLocationPermission();
             }
         });
 
-        btnStopLocation.setOnClickListener(v -> {
-            stopLocationUpdates();
-        });
+        stopButton.setOnClickListener(v -> stopLocationUpdates());
 
-        btnStopLocation.setVisibility(Button.GONE);
+        stopButton.setVisibility(View.GONE);
+    }
+
+    private void loadRoutesFromFirestore() {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("rotas")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    routeList.clear();
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String id = doc.getId();
+                        String name = doc.getString("rota");
+                        Long numLong = doc.getLong("nrota");
+                        String color = doc.getString("cor");
+
+                        int number = (numLong != null) ? numLong.intValue() : 0;
+                        Route route = new Route(id, name, number, color);
+                        routeList.add(route);
+                    }
+
+                    ArrayAdapter<Route> adapter = new ArrayAdapter<>(this,
+                            android.R.layout.simple_spinner_dropdown_item, routeList);
+                    routeSpinner.setAdapter(adapter);
+
+                    if (!routeList.isEmpty()) {
+                        selectedRoute = routeList.get(0);
+                    }
+                })
+                .addOnFailureListener(e -> statusTextView.setText("Erro ao carregar rotas: " + e.getMessage()));
     }
 
     private boolean hasLocationPermission() {
@@ -94,24 +146,25 @@ public class MainActivity extends AppCompatActivity {
                 LOCATION_PERMISSION_REQUEST);
     }
 
-    private void startLocationUpdates(String userName) {
-        tvStatus.setText("Iniciando transmissão de localização...");
-        locationRef = FirebaseDatabase.getInstance().getReference("locations/" + userName);
+    private void beginLocationUpdates() {
+        statusTextView.setText("Iniciando transmissão de localização...");
+
+        firebaseLocationRef = FirebaseDatabase.getInstance().getReference("locations/" + selectedRoute.name);
 
         handler = new Handler();
         locationRunnable = new Runnable() {
             @Override
             public void run() {
-                getAndSendLocation(userName);
-                handler.postDelayed(this, 5000); // Envia a cada 5 segundos
+                requestAndSendLocation();
+                handler.postDelayed(this, 5000); // 5 segundos
             }
         };
 
         handler.post(locationRunnable);
-        btnSendLocation.setVisibility(Button.GONE);
-        btnStopLocation.setVisibility(Button.VISIBLE);
-        etName.setEnabled(false);
-        spinnerLinha.setEnabled(false);
+
+        startButton.setVisibility(View.GONE);
+        stopButton.setVisibility(View.VISIBLE);
+        routeSpinner.setEnabled(false);
     }
 
     private void stopLocationUpdates() {
@@ -119,42 +172,48 @@ public class MainActivity extends AppCompatActivity {
             handler.removeCallbacks(locationRunnable);
         }
 
-        String userName = etName.getText().toString();
-        if (!userName.isEmpty()) {
-            FirebaseDatabase.getInstance().getReference("locations/" + userName).removeValue()
+        if (firebaseLocationRef != null) {
+            firebaseLocationRef.removeValue()
                     .addOnCompleteListener(task -> {
-                        tvStatus.setText("Localização parada e removida do Firebase.");
-                        btnStopLocation.setVisibility(Button.GONE);
-                        btnSendLocation.setVisibility(Button.VISIBLE);
-                        spinnerLinha.setEnabled(true);
-                        etName.setEnabled(true);
+                        statusTextView.setText("Localização parada e removida do Firebase.");
+                        stopButton.setVisibility(View.GONE);
+                        startButton.setVisibility(View.VISIBLE);
+                        routeSpinner.setEnabled(true);
                     });
         }
     }
 
-    private void getAndSendLocation(String userName) {
-        tvStatus.setText("Tentando obter localização...");
+    private void requestAndSendLocation() {
+        statusTextView.setText("Tentando obter localização...");
         fusedLocationClient.getLastLocation()
                 .addOnSuccessListener(location -> {
                     if (location != null) {
-                        tvStatus.setText("Localização obtida: " + location.getLatitude() + ", " + location.getLongitude());
-                        sendLocationToFirebase(location, userName);
+                        statusTextView.setText("Localização obtida: " + location.getLatitude() + ", " + location.getLongitude());
+                        uploadLocationToFirebase(location);
                     } else {
-                        tvStatus.setText("Localização é nula. Tente novamente.");
+                        statusTextView.setText("Localização é nula. Tente novamente.");
                     }
                 })
-                .addOnFailureListener(e -> tvStatus.setText("Erro ao obter localização: " + e.getMessage()));
+                .addOnFailureListener(e -> statusTextView.setText("Erro ao obter localização: " + e.getMessage()));
     }
 
-    private void sendLocationToFirebase(Location location, String userName) {
+    private void uploadLocationToFirebase(Location location) {
+        if (selectedRoute == null) {
+            statusTextView.setText("Nenhuma rota selecionada.");
+            return;
+        }
+
         Map<String, Object> data = new HashMap<>();
         data.put("latitude", location.getLatitude());
         data.put("longitude", location.getLongitude());
-        data.put("linha", linhaSelecionada); // Envia o nome do ficheiro Kml
+        data.put("rota", selectedRoute.name);
+        data.put("nrota", selectedRoute.number);
+        data.put("cor", selectedRoute.color);
+        data.put("id", selectedRoute.firestoreId); // ID do Firestore
 
-        locationRef.setValue(data)
-                .addOnSuccessListener(aVoid -> tvStatus.setText("Localização enviada com linha " + linhaSelecionada))
-                .addOnFailureListener(e -> tvStatus.setText("Erro ao enviar: " + e.getMessage()));
+        firebaseLocationRef.setValue(data)
+                .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com dados da rota."))
+                .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
     }
 
     @Override
@@ -164,12 +223,11 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == LOCATION_PERMISSION_REQUEST &&
                 grantResults.length > 0 &&
                 grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            String userName = etName.getText().toString();
-            if (!userName.isEmpty()) {
-                startLocationUpdates(userName);
+            if (selectedRoute != null) {
+                beginLocationUpdates();
             }
         } else {
-            tvStatus.setText("Permissão de localização negada.");
+            statusTextView.setText("Permissão de localização negada.");
         }
     }
 }

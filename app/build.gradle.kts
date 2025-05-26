@@ -1,17 +1,22 @@
+// app/build.gradle (do seu módulo de aplicativo)
+
 plugins {
     alias(libs.plugins.android.application)
+    // Plugin do Google Services (Firebase)
     id("com.google.gms.google-services")
-
+    // Se estiver usando Kotlin, adicione:
+    // id("org.jetbrains.kotlin.android")
 }
 
 android {
     namespace = "com.example.busdb"
-    compileSdk = 35
+    compileSdk = 35 // Verifique se o SDK 35 está realmente instalado e é a versão que você deseja usar.
+    // O mais comum atualmente é 34.
 
     defaultConfig {
         applicationId = "com.example.busdb"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 35 // Verifique se o SDK 35 está realmente instalado.
         versionCode = 1
         versionName = "1.0"
 
@@ -28,26 +33,29 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // As versões Java 1.8 são amplamente compatíveis.
+        // Se estiver usando Kotlin e um plugin mais recente, você pode considerar JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
 
     implementation(libs.appcompat)
     implementation(libs.material)
-    implementation(libs.firebase.database)
+
     implementation(libs.play.services.location)
+
+    implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-firestore")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
-    implementation ("com.google.firebase:firebase-database:21.0.0")
-    implementation("com.google.android.gms:play-services-location:21.0.1")
-    implementation("com.google.firebase:firebase-common-ktx:20.4.2")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.core:core:1.12.0")
-}
 
-apply(plugin = "com.google.gms.google-services")
+}

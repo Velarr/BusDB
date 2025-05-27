@@ -5,6 +5,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.Service;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Handler;
@@ -23,7 +24,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import java.util.HashMap;
 import java.util.Map;
 
-public class LocationForegroundService extends android.app.Service {
+public class LocationForegroundService extends Service {
 
     private FusedLocationProviderClient fusedLocationClient;
     private Handler handler;

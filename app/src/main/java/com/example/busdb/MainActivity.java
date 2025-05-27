@@ -206,13 +206,10 @@ public class MainActivity extends AppCompatActivity {
         Map<String, Object> data = new HashMap<>();
         data.put("latitude", location.getLatitude());
         data.put("longitude", location.getLongitude());
-        data.put("rota", selectedRoute.name);
-        data.put("nrota", selectedRoute.number);
-        data.put("cor", selectedRoute.color);
-        data.put("id", selectedRoute.firestoreId); // ID do Firestore
+        data.put("id", selectedRoute.firestoreId); // Apenas o ID necessário
 
         firebaseLocationRef.setValue(data)
-                .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com dados da rota."))
+                .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com ID."))
                 .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
     }
 

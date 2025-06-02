@@ -10,19 +10,12 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
-import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class LocationForegroundService extends Service {
 
@@ -30,6 +23,7 @@ public class LocationForegroundService extends Service {
     private Handler handler;
     private Runnable runnable;
 
+    // Chamado quando o serviço é criado; inicializa o cliente de localização e o handler
     @Override
     public void onCreate() {
         super.onCreate();
@@ -37,44 +31,17 @@ public class LocationForegroundService extends Service {
         handler = new Handler();
     }
 
+    // Chamado quando o serviço é iniciado; cria o canal e a notificação para rodar em foreground
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // Criar a notificação se não foi criada anteriormente
         createNotificationChannel();
-
-        // Criando a notificação para o serviço em primeiro plano
         Notification notification = buildNotification();
-
-        // Iniciando o serviço em primeiro plano com a notificação
-        startForeground(1, notification); // A notificação precisa ser fornecida imediatamente aqui
-
-        // Retornar para continuar o serviço em segundo plano
-        return START_STICKY;
+        startForeground(1, notification);  // Inicia o serviço em foreground com a notificação
+        return START_STICKY;  // Mantém o serviço ativo mesmo se o sistema matar ele
     }
 
-    private void startLocationUpdates(String name) {
-        runnable = new Runnable() {
-            @SuppressLint("MissingPermission")
-            @Override
-            public void run() {
-                fusedLocationClient.getLastLocation()
-                        .addOnSuccessListener(location -> {
-                            if (location != null) {
-                                DatabaseReference ref = FirebaseDatabase.getInstance().getReference("locations").child(name);
-                                Map<String, Object> data = new HashMap<>();
-                                data.put("latitude", location.getLatitude());
-                                data.put("longitude", location.getLongitude());
-                                ref.setValue(data);
-                            }
-                        });
-                handler.postDelayed(this, 5000); // A cada 5 segundos
-            }
-        };
-        handler.post(runnable);
-    }
-
+    // Cria a notificação exibida na barra para o serviço foreground
     private Notification buildNotification() {
-        // Criando o PendingIntent que será chamado ao clicar na notificação
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
                 0,
@@ -82,15 +49,15 @@ public class LocationForegroundService extends Service {
                 PendingIntent.FLAG_IMMUTABLE
         );
 
-        // Criando a notificação
         return new NotificationCompat.Builder(this, "default")
                 .setContentTitle("Localização em Trânsito")
                 .setContentText("Transmitindo sua localização.")
-                .setSmallIcon(R.drawable.ic_launcher_background) // Substitua com um ícone válido
-                .setContentIntent(pendingIntent)
+                .setSmallIcon(R.drawable.ic_launcher_background)  // Ícone da notificação
+                .setContentIntent(pendingIntent)  // Abre MainActivity ao clicar na notificação
                 .build();
     }
 
+    // Cria o canal de notificação
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             CharSequence name = "Location Service Channel";
@@ -106,21 +73,19 @@ public class LocationForegroundService extends Service {
         }
     }
 
-
-
-
+    // Não suporta binding, então retorna null
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return null;
     }
 
+    // Quando o serviço é destruído, envia um broadcast para informar que parou
     @Override
     public void onDestroy() {
         super.onDestroy();
-        // Envia o broadcast para parar o serviço
         Intent intent = new Intent("STOP_SERVICE");
         sendBroadcast(intent);
     }
-
 }
+

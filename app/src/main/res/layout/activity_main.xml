@@ -1,37 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
-    <Spinner
-        android:id="@+id/spinnerLinha"
-        android:layout_width="match_parent"
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:spinnerMode="dropdown" />
+        android:layout_width="match_parent"
+        android:background="?attr/colorPrimary"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
 
-    <Button
-        android:id="@+id/btnStartSharing"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Transmitir localização"
-        android:layout_marginTop="16dp" />
 
-    <Button
-        android:id="@+id/btnStopSharing"
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Parar"
-        android:layout_marginTop="16dp"
-        android:visibility="gone" />
+        android:layout_height="match_parent"
+        android:padding="16dp">
 
-    <TextView
-        android:id="@+id/tvStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Status"
-        android:layout_marginTop="16dp"
-        android:textSize="16sp" />
+        <Spinner
+            android:id="@+id/spinnerLinha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:spinnerMode="dropdown" />
+
+        <Button
+            android:id="@+id/btnStartSharing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Transmitir localização"
+            android:layout_marginTop="16dp" />
+
+        <Button
+            android:id="@+id/btnStopSharing"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Parar"
+            android:layout_marginTop="16dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status"
+            android:layout_marginTop="16dp"
+            android:textSize="16sp" />
+    </LinearLayout>
 </LinearLayout>

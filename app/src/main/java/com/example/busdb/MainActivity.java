@@ -5,6 +5,9 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.ArrayAdapter;
@@ -14,6 +17,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -29,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
-
+    private LoginController loginController;
     private static final int LOCATION_PERMISSION_REQUEST = 1001;
     private FusedLocationProviderClient fusedLocationClient;
     private DatabaseReference firebaseLocationRef;
@@ -62,12 +66,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Inicializa componentes, carrega rotas do Firestore e configura eventos
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        FirebaseApp.initializeApp(this);
         setContentView(R.layout.activity_main);
+
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        loginController = new LoginController();
+        loginController.redirectIfNotLoggedIn(this, LoginActivity.class);
+
+        FirebaseApp.initializeApp(this);
 
         statusTextView = findViewById(R.id.tvStatus);
         startButton = findViewById(R.id.btnStartSharing);
@@ -107,7 +117,23 @@ public class MainActivity extends AppCompatActivity {
         stopButton.setVisibility(View.GONE);
     }
 
-    // Carrega as rotas do Firestore e popula o spinner
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_logout) {
+            loginController.logout(this, LoginActivity.class);
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     private void loadRoutesFromFirestore() {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("rotas")
@@ -120,7 +146,9 @@ public class MainActivity extends AppCompatActivity {
                         Long numLong = doc.getLong("nrota");
                         String color = doc.getString("cor");
 
-                        int number = (numLong != null) ? numLong.intValue() : 0;
+                        if (name == null || color == null || numLong == null) continue;
+
+                        int number = numLong.intValue();
                         Route route = new Route(id, name, number, color);
                         routeList.add(route);
                     }
@@ -136,20 +164,17 @@ public class MainActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> statusTextView.setText("Erro ao carregar rotas: " + e.getMessage()));
     }
 
-    // Verifica se permissão de localização está concedida
     private boolean hasLocationPermission() {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    // Solicita permissão de localização ao utilizador
     private void requestLocationPermission() {
         ActivityCompat.requestPermissions(this,
                 new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                 LOCATION_PERMISSION_REQUEST);
     }
 
-    // Inicia o envio periódico da localização para o Firebase
     private void beginLocationUpdates() {
         statusTextView.setText("Iniciando transmissão de localização...");
 
@@ -171,7 +196,6 @@ public class MainActivity extends AppCompatActivity {
         routeSpinner.setEnabled(false);
     }
 
-    // Para o envio da localização e remove dados do Firebase
     private void stopLocationUpdates() {
         if (handler != null && locationRunnable != null) {
             handler.removeCallbacks(locationRunnable);
@@ -188,7 +212,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Obtém a localização atual e envia para o Firebase
     private void requestAndSendLocation() {
         statusTextView.setText("Tentando obter localização...");
         fusedLocationClient.getLastLocation()
@@ -203,7 +226,6 @@ public class MainActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> statusTextView.setText("Erro ao obter localização: " + e.getMessage()));
     }
 
-    // Envia dados da localização e ID da rota para o Firebase Realtime Database
     private void uploadLocationToFirebase(Location location) {
         if (selectedRoute == null) {
             statusTextView.setText("Nenhuma rota selecionada.");
@@ -220,7 +242,6 @@ public class MainActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
     }
 
-    // Trata resultado da solicitação de permissão de localização
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {

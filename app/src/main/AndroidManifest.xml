@@ -22,7 +22,7 @@
             android:value="AIzaSyCbC9hK8flH7WifT7uLYNiNpwyWzAcyNHY" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".LoginActivity"
             android:exported="true"
             android:label="@string/title_activity_secondary">
             <intent-filter>
@@ -30,6 +30,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".MainActivity" />
 
         <!-- Serviço de localização -->
         <service

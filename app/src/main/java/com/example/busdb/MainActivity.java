@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.*;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.firestore.*;
@@ -78,6 +79,24 @@ public class MainActivity extends AppCompatActivity {
         loginController.redirectIfNotLoggedIn(this, LoginActivity.class);
 
         FirebaseApp.initializeApp(this);
+
+        // Exibir saudação com nome vindo da coleção "drivers" usando email
+        TextView welcomeTextView = findViewById(R.id.tvWelcome);
+        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("drivers")
+                .whereEqualTo("email", email)
+                .get()
+                .addOnSuccessListener(query -> {
+                    if (!query.isEmpty()) {
+                        String nome = query.getDocuments().get(0).getString("nome");
+                        welcomeTextView.setText("Olá " + (nome != null ? nome : "condutor") + "!");
+                    } else {
+                        welcomeTextView.setText("Olá condutor!");
+                    }
+                })
+                .addOnFailureListener(e -> welcomeTextView.setText("Olá condutor!"));
 
         statusTextView = findViewById(R.id.tvStatus);
         startButton = findViewById(R.id.btnStartSharing);
@@ -232,14 +251,29 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        Map<String, Object> data = new HashMap<>();
-        data.put("latitude", location.getLatitude());
-        data.put("longitude", location.getLongitude());
-        data.put("id", selectedRoute.firestoreId);
+        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        firebaseLocationRef.setValue(data)
-                .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com ID."))
-                .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
+        db.collection("drivers")
+                .whereEqualTo("email", email)
+                .get()
+                .addOnSuccessListener(query -> {
+                    String nome = "Desconhecido";
+                    if (!query.isEmpty()) {
+                        nome = query.getDocuments().get(0).getString("nome");
+                    }
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("latitude", location.getLatitude());
+                    data.put("longitude", location.getLongitude());
+                    data.put("id", selectedRoute.firestoreId);
+                    data.put("condutor", nome);
+
+                    firebaseLocationRef.setValue(data)
+                            .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com nome."))
+                            .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
+                })
+                .addOnFailureListener(e -> statusTextView.setText("Erro ao buscar nome: " + e.getMessage()));
     }
 
     @Override

@@ -155,15 +155,15 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadRoutesFromFirestore() {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("rotas")
+        db.collection("routes")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     routeList.clear();
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String id = doc.getId();
-                        String name = doc.getString("rota");
-                        Long numLong = doc.getLong("nrota");
-                        String color = doc.getString("cor");
+                        String name = doc.getString("routeName");
+                        Long numLong = doc.getLong("routeNumber");
+                        String color = doc.getString("color");
 
                         if (name == null || color == null || numLong == null) continue;
 

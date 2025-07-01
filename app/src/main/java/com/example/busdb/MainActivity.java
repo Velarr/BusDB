@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat;
 import com.google.android.gms.location.*;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.firestore.*;
@@ -47,6 +48,8 @@ public class MainActivity extends AppCompatActivity {
 
     private List<Route> routeList = new ArrayList<>();
     private Route selectedRoute;
+    private String companyId = null;
+    private String currentUid = null;
 
     private static class Route {
         String firestoreId;
@@ -80,23 +83,31 @@ public class MainActivity extends AppCompatActivity {
 
         FirebaseApp.initializeApp(this);
 
-        // Exibir saudação com nome vindo da coleção "drivers" usando email
         TextView welcomeTextView = findViewById(R.id.tvWelcome);
-        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user != null) {
+            currentUid = user.getUid();
+            String email = user.getEmail();
 
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("drivers")
-                .whereEqualTo("email", email)
-                .get()
-                .addOnSuccessListener(query -> {
-                    if (!query.isEmpty()) {
-                        String nome = query.getDocuments().get(0).getString("nome");
-                        welcomeTextView.setText("Olá " + (nome != null ? nome : "condutor") + "!");
-                    } else {
-                        welcomeTextView.setText("Olá condutor!");
-                    }
-                })
-                .addOnFailureListener(e -> welcomeTextView.setText("Olá condutor!"));
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            db.collection("drivers")
+                    .whereEqualTo("email", email)
+                    .get()
+                    .addOnSuccessListener(query -> {
+                        if (!query.isEmpty()) {
+                            DocumentSnapshot doc = query.getDocuments().get(0);
+                            String nome = doc.getString("nome");
+                            companyId = doc.getString("companyId");
+                            welcomeTextView.setText("Olá " + (nome != null ? nome : "condutor") + "!");
+                            if (companyId != null) {
+                                carregarRotasPorCompanhia(companyId);
+                            }
+                        } else {
+                            welcomeTextView.setText("Olá condutor!");
+                        }
+                    })
+                    .addOnFailureListener(e -> welcomeTextView.setText("Olá condutor!"));
+        }
 
         statusTextView = findViewById(R.id.tvStatus);
         startButton = findViewById(R.id.btnStartSharing);
@@ -104,8 +115,6 @@ public class MainActivity extends AppCompatActivity {
         routeSpinner = findViewById(R.id.spinnerLinha);
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
-        loadRoutesFromFirestore();
 
         routeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -153,9 +162,10 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void loadRoutesFromFirestore() {
+    private void carregarRotasPorCompanhia(String companyId) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         db.collection("routes")
+                .whereEqualTo("companyId", companyId)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     routeList.clear();
@@ -197,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
     private void beginLocationUpdates() {
         statusTextView.setText("Iniciando transmissão de localização...");
 
-        firebaseLocationRef = FirebaseDatabase.getInstance().getReference("locations/" + selectedRoute.name);
+        firebaseLocationRef = FirebaseDatabase.getInstance().getReference("locations/" + selectedRoute.name + "/" + currentUid);
 
         handler = new Handler();
         locationRunnable = new Runnable() {
@@ -232,18 +242,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestAndSendLocation() {
-        statusTextView.setText("Tentando obter localização...");
-        fusedLocationClient.getLastLocation()
-                .addOnSuccessListener(location -> {
-                    if (location != null) {
-                        statusTextView.setText("Localização obtida: " + location.getLatitude() + ", " + location.getLongitude());
-                        uploadLocationToFirebase(location);
-                    } else {
-                        statusTextView.setText("Localização é nula. Tente novamente.");
-                    }
-                })
-                .addOnFailureListener(e -> statusTextView.setText("Erro ao obter localização: " + e.getMessage()));
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            statusTextView.setText("Permissão de localização não concedida.");
+            return;
+        }
+
+        statusTextView.setText("A obter localização atual...");
+
+        LocationRequest locationRequest = LocationRequest.create()
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setInterval(5000)
+                .setNumUpdates(1);
+
+        fusedLocationClient.requestLocationUpdates(locationRequest, new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                fusedLocationClient.removeLocationUpdates(this);
+
+                if (locationResult != null && !locationResult.getLocations().isEmpty()) {
+                    Location location = locationResult.getLastLocation();
+                    statusTextView.setText("Localização atual: " + location.getLatitude() + ", " + location.getLongitude());
+                    uploadLocationToFirebase(location);
+                } else {
+                    statusTextView.setText("Não foi possível obter a localização.");
+                }
+            }
+        }, getMainLooper());
     }
+
+
 
     private void uploadLocationToFirebase(Location location) {
         if (selectedRoute == null) {

@@ -50,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private Route selectedRoute;
     private String companyId = null;
     private String currentUid = null;
+    private String driverName = null;
 
     private static class Route {
         String firestoreId;
@@ -96,7 +97,8 @@ public class MainActivity extends AppCompatActivity {
                     .addOnSuccessListener(query -> {
                         if (!query.isEmpty()) {
                             DocumentSnapshot doc = query.getDocuments().get(0);
-                            String nome = doc.getString("nome");
+                            String nome = doc.getString("name");
+                            driverName = nome;
                             companyId = doc.getString("companyId");
                             welcomeTextView.setText("Olá " + (nome != null ? nome : "condutor") + "!");
                             if (companyId != null) {
@@ -270,37 +272,21 @@ public class MainActivity extends AppCompatActivity {
         }, getMainLooper());
     }
 
-
-
     private void uploadLocationToFirebase(Location location) {
-        if (selectedRoute == null) {
-            statusTextView.setText("Nenhuma rota selecionada.");
+        if (selectedRoute == null || driverName == null) {
+            statusTextView.setText("Informações insuficientes para envio.");
             return;
         }
 
-        String email = FirebaseAuth.getInstance().getCurrentUser().getEmail();
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Map<String, Object> data = new HashMap<>();
+        data.put("latitude", location.getLatitude());
+        data.put("longitude", location.getLongitude());
+        data.put("id", selectedRoute.firestoreId);
+        data.put("condutor", driverName);
 
-        db.collection("drivers")
-                .whereEqualTo("email", email)
-                .get()
-                .addOnSuccessListener(query -> {
-                    String nome = "Desconhecido";
-                    if (!query.isEmpty()) {
-                        nome = query.getDocuments().get(0).getString("nome");
-                    }
-
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("latitude", location.getLatitude());
-                    data.put("longitude", location.getLongitude());
-                    data.put("id", selectedRoute.firestoreId);
-                    data.put("condutor", nome);
-
-                    firebaseLocationRef.setValue(data)
-                            .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com nome."))
-                            .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
-                })
-                .addOnFailureListener(e -> statusTextView.setText("Erro ao buscar nome: " + e.getMessage()));
+        firebaseLocationRef.setValue(data)
+                .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com nome."))
+                .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
     }
 
     @Override

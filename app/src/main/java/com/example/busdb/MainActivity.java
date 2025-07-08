@@ -43,14 +43,15 @@ public class MainActivity extends AppCompatActivity {
     private Button startButton, stopButton;
     private Spinner routeSpinner;
 
-    private Handler handler;
-    private Runnable locationRunnable;
 
     private List<Route> routeList = new ArrayList<>();
     private Route selectedRoute;
     private String companyId = null;
     private String currentUid = null;
     private String driverName = null;
+    private long startTimeMillis = 0;
+    private LocationCallback locationCallback;
+
 
     private static class Route {
         String firestoreId;
@@ -67,8 +68,12 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public String toString() {
+            if (firestoreId == null || number == -1) {
+                return "Selecione uma rota...";
+            }
             return number + " - " + name;
         }
+
     }
 
     @Override
@@ -171,6 +176,11 @@ public class MainActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     routeList.clear();
+
+                    // Primeiro item fake
+                    Route emptyRoute = new Route(null, "Selecione uma rota...", -1, "");
+                    routeList.add(emptyRoute);
+
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String id = doc.getId();
                         String name = doc.getString("routeName");
@@ -184,15 +194,18 @@ public class MainActivity extends AppCompatActivity {
                         routeList.add(route);
                     }
 
+                    // Ordena os itens reais e mantém o item 0 como "Selecione..."
+                    routeList.subList(1, routeList.size()).sort((r1, r2) -> Integer.compare(r1.number, r2.number));
+
                     ArrayAdapter<Route> adapter = new ArrayAdapter<>(this,
                             android.R.layout.simple_spinner_dropdown_item, routeList);
                     routeSpinner.setAdapter(adapter);
 
-                    if (!routeList.isEmpty()) {
-                        selectedRoute = routeList.get(0);
-                    }
+                    // Nenhuma rota real selecionada por padrão
+                    selectedRoute = null;
                 })
-                .addOnFailureListener(e -> statusTextView.setText("Erro ao carregar rotas: " + e.getMessage()));
+                .addOnFailureListener(e ->
+                        statusTextView.setText("Erro ao carregar rotas: " + e.getMessage()));
     }
 
     private boolean hasLocationPermission() {
@@ -208,68 +221,83 @@ public class MainActivity extends AppCompatActivity {
 
     private void beginLocationUpdates() {
         statusTextView.setText("Iniciando transmissão de localização...");
-
         firebaseLocationRef = FirebaseDatabase.getInstance().getReference("locations/" + selectedRoute.name + "/" + currentUid);
+        startTimeMillis = System.currentTimeMillis();
 
-        handler = new Handler();
-        locationRunnable = new Runnable() {
+        LocationRequest locationRequest = LocationRequest.create()
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .setInterval(5000)
+                .setFastestInterval(3000);
+
+        locationCallback = new LocationCallback() {
             @Override
-            public void run() {
-                requestAndSendLocation();
-                handler.postDelayed(this, 5000);
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                Location location = locationResult.getLastLocation();
+                if (location != null) {
+                    uploadLocationToFirebase(location);
+                }
             }
         };
 
-        handler.post(locationRunnable);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestLocationPermission();
+            return;
+        }
+
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, getMainLooper());
 
         startButton.setVisibility(View.GONE);
         stopButton.setVisibility(View.VISIBLE);
         routeSpinner.setEnabled(false);
     }
 
+
     private void stopLocationUpdates() {
-        if (handler != null && locationRunnable != null) {
-            handler.removeCallbacks(locationRunnable);
+        if (fusedLocationClient != null && locationCallback != null) {
+            fusedLocationClient.removeLocationUpdates(locationCallback);
         }
+
+        long endTimeMillis = System.currentTimeMillis();
+        long durationMillis = endTimeMillis - startTimeMillis;
+
+        long seconds = (durationMillis / 1000) % 60;
+        long minutes = (durationMillis / (1000 * 60)) % 60;
+        long hours = (durationMillis / (1000 * 60 * 60));
+        String duracao = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+
+        String horaInicio = formatTime(startTimeMillis);
+        String horaFim = formatTime(endTimeMillis);
+        String dataDia = getCurrentDateKey();
+
+        Map<String, Object> tempoData = new HashMap<>();
+        tempoData.put("horaInicio", horaInicio);
+        tempoData.put("horaFim", horaFim);
+        tempoData.put("duracao", duracao);
+        tempoData.put("rota", selectedRoute.name);
+        tempoData.put("idRota", selectedRoute.firestoreId);
+
+        FirebaseFirestore.getInstance()
+                .collection("drivers")
+                .document(currentUid)
+                .collection("time")
+                .document(dataDia)
+                .collection("viagens")
+                .add(tempoData)
+                .addOnSuccessListener(docRef -> {
+                    statusTextView.setText("Viagem salva com duração: " + duracao);
+                })
+                .addOnFailureListener(e -> {
+                    statusTextView.setText("Erro ao salvar tempo: " + e.getMessage());
+                });
 
         if (firebaseLocationRef != null) {
             firebaseLocationRef.removeValue()
                     .addOnCompleteListener(task -> {
-                        statusTextView.setText("Localização parada e removida do Firebase.");
                         stopButton.setVisibility(View.GONE);
                         startButton.setVisibility(View.VISIBLE);
                         routeSpinner.setEnabled(true);
                     });
         }
-    }
-
-    private void requestAndSendLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            statusTextView.setText("Permissão de localização não concedida.");
-            return;
-        }
-
-        statusTextView.setText("A obter localização atual...");
-
-        LocationRequest locationRequest = LocationRequest.create()
-                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-                .setInterval(5000)
-                .setNumUpdates(1);
-
-        fusedLocationClient.requestLocationUpdates(locationRequest, new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                fusedLocationClient.removeLocationUpdates(this);
-
-                if (locationResult != null && !locationResult.getLocations().isEmpty()) {
-                    Location location = locationResult.getLastLocation();
-                    statusTextView.setText("Localização atual: " + location.getLatitude() + ", " + location.getLongitude());
-                    uploadLocationToFirebase(location);
-                } else {
-                    statusTextView.setText("Não foi possível obter a localização.");
-                }
-            }
-        }, getMainLooper());
     }
 
     private void uploadLocationToFirebase(Location location) {
@@ -278,16 +306,36 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // Calcular tempo decorrido
+        long elapsedMillis = System.currentTimeMillis() - startTimeMillis;
+        long seconds = (elapsedMillis / 1000) % 60;
+        long minutes = (elapsedMillis / (1000 * 60)) % 60;
+        long hours = (elapsedMillis / (1000 * 60 * 60));
+        String tempo = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+
         Map<String, Object> data = new HashMap<>();
         data.put("latitude", location.getLatitude());
         data.put("longitude", location.getLongitude());
         data.put("id", selectedRoute.firestoreId);
         data.put("condutor", driverName);
+        data.put("tempo", tempo); // <-- novo campo
 
         firebaseLocationRef.setValue(data)
-                .addOnSuccessListener(aVoid -> statusTextView.setText("Localização enviada com nome."))
+                .addOnSuccessListener(aVoid -> statusTextView.setText("Tempo: " + tempo))
                 .addOnFailureListener(e -> statusTextView.setText("Erro ao enviar: " + e.getMessage()));
     }
+
+    private String formatTime(long millis) {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault());
+        return sdf.format(new java.util.Date(millis));
+    }
+
+    private String getCurrentDateKey() {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault());
+        return sdf.format(new java.util.Date());
+    }
+
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,

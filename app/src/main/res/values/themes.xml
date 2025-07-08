@@ -1,16 +1,17 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.BusDB" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
+    <style name="Theme.BusDB" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Cores fixas -->
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryVariant">@color/black</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+        <item name="colorSecondary">@color/black</item>
+
+        <!-- Campos (editText, hint, etc) -->
+        <item name="editTextColor">@color/black</item>
+        <item name="android:textColorHint">@color/hint_dark</item>
+        <item name="android:textColor">@color/black</item>
+
+        <!-- Forçar branco no fundo -->
+        <item name="android:windowBackground">@color/light_gray</item>
     </style>
 </resources>

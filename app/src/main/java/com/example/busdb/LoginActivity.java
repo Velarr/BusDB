@@ -14,13 +14,20 @@ public class LoginActivity extends AppCompatActivity {
 
     private EditText emailInput, passwordInput;
     private Button loginButton;
-
     private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login); // Cria esse layout
+
+        // Verifica se já está logado
+        if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
+            return;
+        }
+
+        setContentView(R.layout.activity_login);
 
         mAuth = FirebaseAuth.getInstance();
 
@@ -43,10 +50,9 @@ public class LoginActivity extends AppCompatActivity {
         mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        // Login com sucesso
                         Toast.makeText(this, "Login feito com sucesso", Toast.LENGTH_SHORT).show();
                         startActivity(new Intent(this, MainActivity.class));
-                        finish(); // Fecha o LoginActivity
+                        finish();
                     } else {
                         Toast.makeText(this, "Falha no login: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
                     }

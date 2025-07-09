@@ -136,16 +136,18 @@ public class MainActivity extends AppCompatActivity {
         });
 
         startButton.setOnClickListener(v -> {
-            if (selectedRoute == null) {
-                statusTextView.setText("Por favor, selecione uma rota.");
+            if (selectedRoute == null || selectedRoute.firestoreId == null || selectedRoute.number == -1) {
+                statusTextView.setText("Por favor, selecione uma rota válida.");
                 return;
             }
+
             if (hasLocationPermission()) {
                 beginLocationUpdates();
             } else {
                 requestLocationPermission();
             }
         });
+
 
         stopButton.setOnClickListener(v -> stopLocationUpdates());
 
@@ -276,18 +278,33 @@ public class MainActivity extends AppCompatActivity {
         tempoData.put("rota", selectedRoute.name);
         tempoData.put("idRota", selectedRoute.firestoreId);
 
-        FirebaseFirestore.getInstance()
-                .collection("drivers")
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // Cria o documento do dia com um campo vazio para garantir que ele exista
+        db.collection("drivers")
                 .document(currentUid)
                 .collection("time")
                 .document(dataDia)
-                .collection("viagens")
-                .add(tempoData)
-                .addOnSuccessListener(docRef -> {
-                    statusTextView.setText("Viagem salva com duração: " + duracao);
+                .set(new HashMap<String, Object>() {{
+                    put("exists", true);
+                }})
+                .addOnSuccessListener(aVoid -> {
+                    // Agora salva a viagem na subcoleção
+                    db.collection("drivers")
+                            .document(currentUid)
+                            .collection("time")
+                            .document(dataDia)
+                            .collection("viagens")
+                            .add(tempoData)
+                            .addOnSuccessListener(docRef -> {
+                                statusTextView.setText("Viagem salva com duração: " + duracao);
+                            })
+                            .addOnFailureListener(e -> {
+                                statusTextView.setText("Erro ao salvar tempo: " + e.getMessage());
+                            });
                 })
                 .addOnFailureListener(e -> {
-                    statusTextView.setText("Erro ao salvar tempo: " + e.getMessage());
+                    statusTextView.setText("Erro ao preparar o documento do dia: " + e.getMessage());
                 });
 
         if (firebaseLocationRef != null) {
@@ -299,6 +316,7 @@ public class MainActivity extends AppCompatActivity {
                     });
         }
     }
+
 
     private void uploadLocationToFirebase(Location location) {
         if (selectedRoute == null || driverName == null) {
